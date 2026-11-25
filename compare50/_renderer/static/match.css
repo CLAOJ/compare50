@@ -1,223 +1,93 @@
-/*
- * match page css
- */
+/* match page */
 
-body, h1, h4, h5 {
-    counter-reset: line_numbers;
-}
+body { overflow: hidden; }
 
-body {
-    font-family: Proxima-Nova, sans-serif;
-}
+#content { height: calc(100vh - var(--toolbar-h)); }
+.view { height: 100%; }
+.diff { display: flex; height: 100%; }
 
-.wrapper {
-    margin-left: 10em;
-}
-
-.view {
-    padding-left: 0px;
-    padding-right: 0px;
-}
-
-#page {
-    overflow-y: hidden;
+.side {
     height: 100%;
+    overflow: auto;
+    background: var(--surface);
 }
+.side.left { border-right: 1px solid var(--border); }
 
-#content {
-    width: 100%;
+/* sticky submission header inside each pane, so it follows the splitter */
+.side > .sub_name {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
 }
+.who { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.pct { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-.sub_name {
-    margin-top: 0.33em;
-    padding-right: 0px;
-}
+.submission-file { counter-reset: line_numbers; border-top: 1px solid var(--border); }
+.side > .sub_name + .submission-file { border-top: 0; }
 
-.row {
-    margin-left: 0px;
-    margin-right: 0px;
+.file_name {
+    padding: 8px 16px 0;
+    color: var(--muted);
+    font: 12.5px var(--mono);
+    overflow-wrap: anywhere;
 }
 
 pre {
-    overflow-y: hidden;
-    padding-bottom: 15px;
+    margin: 0;
+    padding: 8px 0 16px;
+    overflow-x: auto;
+    color: var(--text);
+    font: 13px/1.6 var(--mono);
+    font-variant-ligatures: none; /* show code exactly: "<=" must not become "≤" */
+    tab-size: 4;
 }
 
-.diff {
-    width: 100%;
-    height: 100%;
-}
-
-
-.left {
-    overflow-y: scroll;
-    left: 0;
-    border: 1px solid black;
-    border-top: 0;
-    max-width:100%;
-    width: 100%;
-    height: 100%;
-}
-
-.right {
-    overflow-y: scroll;
-    right: 0;
-    border: 1px solid black;
-    border-left: 0;
-    border-top: 0;
-    max-width:100%;
-    width: 100%;
-    height: 100%;
-}
-
-.fragment:before {
-    counter-reset: none;
-}
-
-.file_name {
-    word-break: break-word;
-}
-
-/* highlighted code fragments */
-.match {
-    background-color: #ffd0a8;
-}
-
-.active_match {
-    /*font-weight: bold;*/
-    background-color: #ffaa60;
-    /*color: white;*/
-    cursor: pointer;
-}
-
-/* style code samples */
-.side .submission-file:first-child {
-    border-top: none;
-}
-
-.submission-file {
-    border-top: 1px solid black;
-    white-space: pre-wrap;
-}
-.submission-file code.newline {
-    counter-increment: line_numbers;
-}
+.line { font: inherit; }
+.submission-file code.newline { counter-increment: line_numbers; }
 .submission-file code.newline::before {
-    content: counter(line_numbers) "";
+    content: counter(line_numbers);
     display: inline-block;
-    width: 3em;
-    border-right: 1px solid black;
-    margin-right: 0.5em;
-    padding-right: 1em;
+    width: 3.5em;
+    margin-right: 12px;
+    padding-right: 10px;
+    border-right: 1px solid var(--border);
+    color: var(--muted);
     text-align: right;
-    padding 0 0.5em;
-    color: black;
+    user-select: none;
 }
 
-.line {
-    line-height: 1em;
-    font-family: Consolas, monospace;
-}
+/* matched code */
+.fragment { font: inherit; }
+.match { background-color: var(--match); cursor: pointer; }
+.active_match { background-color: var(--match-active); }
+.text-muted { color: var(--muted); }
 
 /* syntax colours (classes from _renderer.highlight) */
 .tk-k  { color: #0033b3; font-weight: 600; }
 .tk-s  { color: #067d17; }
-.tk-c  { color: #8c8c8c; font-style: italic; }
-.tk-cp { color: #9e880d; }
+.tk-c  { color: #6b7280; font-style: italic; }
+.tk-cp { color: #8a6d00; }
 .tk-m  { color: #1750eb; }
 .tk-nb { color: #871094; }
 .tk-nf { color: #00627a; }
+@media (prefers-color-scheme: dark) {
+    .tk-k  { color: #93c5fd; }
+    .tk-s  { color: #86efac; }
+    .tk-c  { color: #9ca3af; }
+    .tk-cp { color: #fcd34d; }
+    .tk-m  { color: #c4b5fd; }
+    .tk-nb { color: #f0abfc; }
+    .tk-nf { color: #67e8f9; }
+}
 .text-muted [class^="tk-"] { color: inherit; font-weight: inherit; }
 
-#sidebar {
-    padding-left: 5px;
-    padding-right: 5px;
-    margin-left: -10em;
-    left: 10em;
-    width: 10em;
-    position: fixed;
-    height: 100%;
-    z-index: 1000;
-}
-
-#next_prev_match {
-    margin-top: .4em;
-}
-
-#passes {
-    margin-top: 10%;
-    margin-bottom: 10%;
-}
-
-.matches_group {
-    margin-bottom: .4em;
-}
-
-.brand {
-    text-align: center;
-    vertical-align: middle;
-    width: 100%;
-    height: 2.20em;
-    margin-top: 0.13em;
-}
-
-a.index-link {
-    color:inherit;
-    text-decoration: none;
-}
-
-a.index-link:hover {
-    color:inherit;
-    text-decoration: none;
-}
-
-.score_tooltip {
-    position: relative;
-    display: inline-block;
-}
-
-.score_tooltip .tooltiptext {
-    visibility: hidden;
-    width: 10em;
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px 0;
-    position: absolute;
-    z-index: 1;
-    top: -5px;
-    left: 110%;
-}
-
-.score_tooltip:hover .tooltiptext {
-    visibility: visible;
-}
-
-/* Split.js stuff */
-
-.split {
-    -webkit-box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.gutter {
-    background-color: transparent;
-    background-repeat: no-repeat;
-    background-position: 50%;
-}
-.gutter.gutter-horizontal {
-    cursor: col-resize;
-    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeMwF+yNnOs5KSvgAAAABJRU5ErkJggg==');
-}
-
-.gutter.gutter-vertical {
-    cursor: row-resize;
-    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII=');
-}
-
-.split.split-horizontal, .gutter.gutter-horizontal {
-    height: 100%;
-    float: left;
-}
+/* Split.js */
+.gutter { flex: none; background: var(--border); cursor: col-resize; transition: background-color 0.15s; }
+.gutter:hover { background: var(--primary); }

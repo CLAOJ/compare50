@@ -1,19 +1,14 @@
-
-
-<div id="{{name}}" class="container-fluid h-100 view {{name}}">
-    <div class="row sticky-top bg-dark text-light" id="{{name}}sub_names">
-        {% for sub in sub_a, sub_b %}
-            <div class="col-sm-6 col-2 sub_name">
-                <h5>{{sub.name}} ({{sub.percentage}}%)</h5>
-            </div>
-        {% endfor %}
-    </div>
-    <div class="row diff">
+<section id="{{name}}" class="view {{name}}">
+    <div class="diff">
         {% for sub, side in (sub_a, "left"), (sub_b, "right") %}
-            <div class="col-sm-6 col-2 side {{side}}" id="{{name}}{{side}}">
+            <div class="side {{side}}" id="{{name}}{{side}}">
+                <div class="sub_name"{% if side == "left" %} id="{{name}}sub_names"{% endif %}>
+                    <span class="who">{{sub.name}}</span>
+                    <span class="pct" title="Share of this submission's code that matches the other one">{{sub.percentage}}% matched</span>
+                </div>
                 {% for file in sub.files %}
                     <div class="submission-file">
-                        <h4 class="file_name">{{file.name}} <span class="text-secondary small">({{file.percentage}}%)</span></h4>
+                        <div class="file_name">{{file.name}} <span class="pct">{{file.percentage}}%</span></div>
                             <pre>
                                 {%- set ns = namespace(is_newline=true) -%}
                                 {%- for frag in file.fragments -%}
@@ -30,4 +25,4 @@
             </div>
         {% endfor %}
     </div>
-</div>
+</section>

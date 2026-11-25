@@ -2,27 +2,36 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Plagiarism report</title>
         {% for style in css %}
             <style>{{style | safe}}</style>
         {% endfor %}
     </head>
     <body>
-        <div class="container-fluid">
-            <div class="row sticky-top">
-                <div id="title" class="col bg-dark text-light no-gutter">
-                    <h4 class="align-text-bottom">compare50</h4>
+        <header class="toolbar" id="title">
+            <span class="brand">Plagiarism report</span>
+            <span class="meta" id="summary"></span>
+        </header>
+        <main class="index-layout">
+            <section class="panel" id="index" aria-labelledby="pairs_heading">
+                <div class="panel-head">
+                    <h1 id="pairs_heading">Most similar pairs</h1>
+                    <p class="hint">Scores are relative to this report: the most similar pair scores 10. Open a pair to compare the code side by side.</p>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-8 table-responsive" id="index"></div>
-                <div class="col-4" id="cluster">
-                    <div id="cluster_graph"></div>
+            </section>
+            <aside class="panel" id="cluster" aria-labelledby="cluster_heading">
+                <div class="panel-head">
+                    <h2 id="cluster_heading">Clusters</h2>
+                    <p class="hint">Linked submissions share code. Click a node to show only its cluster; click empty space to reset.</p>
+                </div>
+                <div id="cluster_graph"></div>
+                <div class="slider-wrap">
+                    <label>Minimum score</label>
                     <div id="slider"></div>
                 </div>
-            </div>
-        </div>
+            </aside>
+        </main>
         <script>
             var GRAPH = {{graph_info|tojson}};
         </script>

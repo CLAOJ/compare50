@@ -229,7 +229,8 @@ class TestCompare50Cli(unittest.TestCase):
             path = os.path.join(self.cwd, "out", page)
             with open(path, encoding="utf8") as f:
                 self.assertFalse("@font-face" in f.read(), page)
-            self.assertLess(os.path.getsize(path), 450_000, page)
+            self.assertLess(os.path.getsize(path), 300_000, page)  # no Bootstrap either
+            self.assertFalse("Bootstrap v4" in open(path, encoding="utf8").read(), page)
 
     def test_match_page_has_syntax_colours(self):
         self.write("a/main.cpp", ORIGINAL_C)

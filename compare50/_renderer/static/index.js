@@ -25,6 +25,10 @@ var COLOR = null;
 const HORRIBLE_TWO_NODE_HACK = true;
 
 function init_data() {
+    let n_subs = GRAPH.nodes.length, n_pairs = GRAPH.links.length;
+    document.getElementById("summary").textContent =
+        `${n_subs} submission${n_subs === 1 ? "" : "s"} · ${n_pairs} pair${n_pairs === 1 ? "" : "s"} shown`;
+
     if (HORRIBLE_TWO_NODE_HACK) {
         /// When there are exactly two nodes, add an additional one with an id of "" and an edge with value -1
         if (GRAPH.nodes.length == 2) {
@@ -86,7 +90,7 @@ function init_graph() {
         })
         .ticks(10 - slider_start + 1)
         .default(0)
-        .fill("#2196f3")
+        .fill(getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#2563eb")
         .on("onchange", cutoff)
         .handle(
             d3
@@ -96,10 +100,9 @@ function init_graph() {
         );
     d3.select("div#slider")
       .append("svg")
-        .attr("height", 100)
-        .attr("class", "mx-auto d-block")
+        .attr("height", 60)
       .append("g")
-        .attr("transform", "translate(30,30)");
+        .attr("transform", "translate(12,16)");
 
     G_LINK = SVG.append("g").attr("class", "links");
 
@@ -133,21 +136,14 @@ function init_graph() {
 
 
 function init_index() {
-    let table = d3.select("div#index").append("table")
-        .attr("class", "table table-hover w-100")
+    let table = d3.select("section#index").append("table")
+        .attr("class", "pairs")
         .attr("id", "results");
 
     let thead_tr = table.append("thead").append("tr");
-    thead_tr.append("td")
-        .attr("scope", "col")
-        .text("#");
-    thead_tr.append("td")
-        .attr("scope", "col")
-        .attr("colspan", 2)
-        .text("Submissions");
-    thead_tr.append("td")
-        .attr("scope", "col")
-        .text("Score");
+    for (let [label, cls] of [["#", "rank"], ["Submission A", ""], ["Submission B", ""], ["Score", "score"]]) {
+        thead_tr.append("th").attr("scope", "col").attr("class", cls).text(label);
+    }
 
     INDEX = table.append("tbody");
 
@@ -156,28 +152,21 @@ function init_index() {
 
 
 function on_resize() {
-    let cluster_div = document.getElementById("cluster");
-    let header_size = document.querySelector("thead").clientHeight;
-    cluster_div.style.paddingTop = `${header_size}px`;
+    WIDTH = get_real_width(document.getElementById("cluster_graph"));
 
-    WIDTH = get_real_width(document.getElementById("cluster"));
-
-    SLIDER.width(Math.floor(0.8 * WIDTH) - 60);
+    let slider_width = Math.max(120, get_real_width(document.getElementById("slider")) - 24);
+    SLIDER.width(slider_width);
     d3.select("div#slider")
-      .attr("width", WIDTH)
-        .select("svg")
-          .attr("width", Math.floor(0.8 * WIDTH))
-
-    d3.select("div#slider")
-      .attr("width", WIDTH)
       .select("svg")
-        .attr("width", Math.floor(0.8 * WIDTH))
+        .attr("width", slider_width + 24)
         .select("g")
           .call(SLIDER);
 
-    HEIGHT = window.innerHeight - document.getElementById("title").clientHeight
-                                - document.getElementById("slider").clientHeight
-                                - header_size;
+    // Fill the sticky panel: viewport minus toolbar, panel header, slider and gaps
+    let cluster = document.getElementById("cluster");
+    let chrome = cluster.querySelector(".panel-head").offsetHeight
+               + cluster.querySelector(".slider-wrap").offsetHeight;
+    HEIGHT = Math.max(240, window.innerHeight - document.getElementById("title").offsetHeight - chrome - 48);
 
     SVG.attr("width", WIDTH).attr("height", HEIGHT);
 
@@ -351,24 +340,37 @@ function update() {
 function update_index() {
     let table_data = INDEX.selectAll("tr").data(LINK_DATA, d => d.index);
 
-    let new_trs = table_data.enter().append("tr");
+    let new_trs = table_data.enter().append("tr")
+        .attr("tabindex", 0)
+        .attr("role", "link")
+        .attr("aria-label", d => `Open pair ${d.index + 1}: ${d.source.id} and ${d.target.id}, score ${d.value.toFixed(1)}`);
 
-    new_trs.append("th")
-        .attr("scope", "row")
-        .text(d => d.index + 1);
+    let rank = new_trs.append("td").attr("class", "rank");
+    rank.append("span")
+        .attr("class", "dot")
+        .style("background", d => d.source.group === undefined ? "transparent" : COLOR(d.source.group));
+    rank.append("span").text(d => d.index + 1);
 
     for (let field of ["source", "target"]) {
-        new_trs.append("td")
+        let cell = new_trs.append("td")
             .attr("class", "sub_name")
-            .datum(d => d[field])
-            .html(d => GRAPH.data[d.id].is_archive ? `${ARCHIVE_IMG} ${d.id}` : d.id);
+            .datum(d => d[field]);
+        // Names are user-controlled: insert as text, never as HTML
+        cell.filter(d => GRAPH.data[d.id].is_archive).html(ARCHIVE_IMG);
+        cell.append("span").text(d => d.id);
     }
 
-    new_trs.append("td")
-        .attr("class", "score")
-        .text(d => d.value.toFixed(1))
-        .style("border-right", d => d.source.group === undefined ? "" : `10px solid ${COLOR(d.source.group)}`);
+    let score = new_trs.append("td").attr("class", "score")
+        .append("div").attr("class", "score-cell");
+    score.append("div")
+        .attr("class", d => "bar" + (d.value >= 8 ? " high" : d.value >= 5 ? " mid" : ""))
+        .append("span")
+        .style("width", d => `${Math.max(0, Math.min(10, d.value)) * 10}%`);
+    score.append("span").attr("class", "num").text(d => d.value.toFixed(1));
 
+    new_trs.on("keydown", d => {
+        if (d3.event.key === "Enter") window.open(`match_${d.index + 1}.html`);
+    });
 
     new_trs
         .on("mouseover", link => {
@@ -391,11 +393,11 @@ function update_index() {
     GRAPH.nodes.forEach(node => group_selected = node.is_group_selected ? node.group : group_selected);
 
     table_data.merge(new_trs)
-              .style("background-color", link => link.source.is_group_focused && !link.source.is_group_selected ? "#ECECEC" : "")
+              .classed("is-group-focused", link => link.source.is_group_focused && !link.source.is_group_selected)
               .style("display", link => group_selected !== undefined && group_selected !== link.source.group ? "none" : "")
               .selectAll(".sub_name")
-                .style("background-color", d => d.is_node_focused ? "#CCCCCC" : "")
-                .style("font-weight", d => d.is_node_selected ? "bold" : "");
+                .classed("is-node-focused", d => !!d.is_node_focused)
+                .classed("is-node-selected", d => !!d.is_node_selected);
 
     table_data.exit().remove();
 }
@@ -451,16 +453,16 @@ function update_graph() {
     nodes.merge(new_nodes)
         .style("fill", d => {
             if (d.is_node_in_background) {
-                return "grey";
+                return "var(--node-muted)";
             }
             if (group_selected === undefined || group_selected === d.group) {
                 return COLOR(d.group)
             }
-            return "grey";
+            return "var(--node-muted)";
         })
-        .attr("stroke", function(d) {
+        .style("stroke", function(d) {
             if (d.is_node_focused || d.is_node_in_splotlight || d.is_node_selected)
-                return "black";
+                return "var(--text)";
             else if (d.is_group_focused)
                 return d3.select(this).style("fill");
             else

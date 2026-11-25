@@ -179,7 +179,7 @@ function init_navigation(id) {
 
 function init_group_button(groups, view_name) {
     function update_group_counter() {
-        document.getElementById("group_counter").innerHTML = (group_index + 1) + " / " + groups.length;
+        document.getElementById("group_counter").textContent = (group_index + 1) + " / " + groups.length;
     }
 
     // If view changed, update group counter
@@ -389,9 +389,8 @@ function select_view(name) {
 
     for (let v of views) {
         if (v.style.display === "block") {
-            // TODO: get these by id instead of assuming structure
-            leftScroll = v.children[1].children[0].scrollTop;
-            rightScroll = v.children[1].children[1].scrollTop
+            leftScroll = document.getElementById(v.id + "left").scrollTop;
+            rightScroll = document.getElementById(v.id + "right").scrollTop;
         }
 
         if (v.id === CURRENT_VIEW) {
@@ -402,8 +401,8 @@ function select_view(name) {
         }
     }
 
-    curView.children[1].children[0].scrollTop = leftScroll;
-    curView.children[1].children[1].scrollTop = rightScroll;
+    document.getElementById(curView.id + "left").scrollTop = leftScroll;
+    document.getElementById(curView.id + "right").scrollTop = rightScroll;
 
     var newurl = window.location.protocol + "//" + window.location.host + window.location.pathname +
         (datum !== DATA[0] ? `?pass=${CURRENT_VIEW}` : "")
