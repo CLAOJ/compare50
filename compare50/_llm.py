@@ -30,19 +30,20 @@ Answer with JSON only: {"verdict": "likely_copied" | "shared_template" | "indepe
 
 
 class Config:
-    def __init__(self, url, key, model, pairs=5, min_score=5.0):
+    def __init__(self, url, key, model, pairs=5, min_score=5.0, language="English"):
         self.url = url.rstrip("/") + "/chat/completions"
         self.key = key
         self.model = model
         self.pairs = pairs
         self.min_score = min_score
+        self.language = language
 
     @classmethod
-    def from_env(cls, pairs, min_score):
+    def from_env(cls, pairs, min_score, language="English"):
         url, key, model = (os.environ.get(f"COMPARE50_LLM_{k}", "") for k in ("URL", "KEY", "MODEL"))
         if not (url and key and model) or pairs <= 0:
             return None
-        return cls(url, key, model, pairs, min_score)
+        return cls(url, key, model, pairs, min_score, language)
 
 
 def _source(sub):
@@ -61,7 +62,9 @@ def _ask(config, sub_a, sub_b, score):
     user = (f"Checker similarity: {score:.1f}/10 (relative to the most similar pair in this report)\n\n"
             f"--- Solution A ---\n{_source(sub_a)}\n\n--- Solution B ---\n{_source(sub_b)}")
     body = json.dumps({"model": config.model, "temperature": 0,
-                       "messages": [{"role": "system", "content": SYSTEM_PROMPT},
+                       "messages": [{"role": "system", "content": SYSTEM_PROMPT + (
+                                        f"\nWrite the reasons in {config.language}; keep the JSON keys and "
+                                        "verdict values exactly as given in English.")},
                                     {"role": "user", "content": user}]}).encode()
     req = urllib.request.Request(config.url, data=body, method="POST", headers={
         "Content-Type": "application/json", "Authorization": f"Bearer {config.key}"})

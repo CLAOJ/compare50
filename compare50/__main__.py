@@ -360,6 +360,10 @@ def main():
                         default=5.0,
                         type=float,
                         help="only review pairs scoring at least this (0-10, relative to the top pair; default 5)")
+    parser.add_argument("--llm-language",
+                        action="store",
+                        default="English",
+                        help="language the LLM writes its reasons in (default English)")
     parser.add_argument("--profile",
                         action="store_true",
                         help="profile compare50 (development only, requires line_profiler, implies debug)")
@@ -454,7 +458,7 @@ def main():
                     object.__setattr__(sub, "preprocessor", preprocessor)
                 pass_to_results[pass_] = _api.compare(scores, ignored_files, pass_)
 
-        llm = _llm.Config.from_env(args.llm_pairs, args.llm_min_score)
+        llm = _llm.Config.from_env(args.llm_pairs, args.llm_min_score, args.llm_language)
         if llm:
             termcolor.cprint(f"Asking {llm.model} about the top {llm.pairs} pairs...", "yellow")
 
