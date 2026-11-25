@@ -27,6 +27,17 @@
                 <button type="button" class="btn matches_group" id="next_group" aria-label="Next match" title="Next match (] or Space)">&rsaquo;</button>
             </div>
         </header>
+        {% if review %}
+        <details class="llm-panel verdict-{{review.verdict}}" open>
+            <summary>
+                <span class="verdict">{{ {"likely_copied": "Likely copied", "shared_template": "Shared template", "independent": "Independent", "unclear": "Unclear"}.get(review.verdict, "AI review failed") }}</span>
+                {% if review.verdict != "error" %}<span class="conf">{{ (review.confidence * 100)|round|int }}% confidence</span>{% endif %}
+                <span class="hint">AI second opinion · not proof</span>
+            </summary>
+            {% if review.error %}<p class="hint">{{review.error}}</p>{% endif %}
+            <ul>{% for reason in review.reasons %}<li>{{reason}}</li>{% endfor %}</ul>
+        </details>
+        {% endif %}
         <main id="content">
             {% for match in matches %}
                 {{match|safe}}

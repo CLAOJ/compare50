@@ -11,6 +11,7 @@
     --primary-weak: #dbeafe;
     --warn: #d97706;
     --danger: #dc2626;
+    --ok: #15803d;
     --toolbar: #0f172a;
     --toolbar-text: #f8fafc;
     --toolbar-muted: #94a3b8;
@@ -37,6 +38,7 @@
         --primary-weak: #1e3a5f;
         --warn: #fbbf24;
         --danger: #f87171;
+        --ok: #4ade80;
         --toolbar: #020617;
         --match: rgba(250, 204, 21, 0.16);
         --match-active: rgba(250, 204, 21, 0.42);

@@ -1,8 +1,30 @@
 /* match page */
 
-body { overflow: hidden; }
+body { overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
 
-#content { height: calc(100vh - var(--toolbar-h)); }
+#content { flex: 1; min-height: 0; }
+
+/* LLM verdict strip (only when compare50 ran with an LLM) */
+.llm-panel {
+    flex: none;
+    max-height: 40vh;
+    overflow: auto;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    border-left: 4px solid var(--muted);
+}
+.llm-panel summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; }
+.llm-panel .verdict { font-weight: 700; }
+.llm-panel .conf { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.llm-panel ul { margin: 6px 0 2px; padding-left: 20px; }
+.llm-panel li { margin: 2px 0; }
+.verdict-likely_copied { border-left-color: var(--danger); }
+.verdict-likely_copied .verdict { color: var(--danger); }
+.verdict-shared_template { border-left-color: var(--warn); }
+.verdict-shared_template .verdict { color: var(--warn); }
+.verdict-independent { border-left-color: var(--ok); }
+.verdict-independent .verdict { color: var(--ok); }
 .view { height: 100%; }
 .diff { display: flex; height: 100%; }
 

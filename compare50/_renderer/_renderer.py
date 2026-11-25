@@ -1,5 +1,6 @@
 import collections
 import glob
+import json
 import os
 import pathlib
 import shutil
@@ -14,7 +15,7 @@ from markupsafe import Markup, escape
 from pygments import token as T
 from pygments.formatters import HtmlFormatter
 
-from .. import _api
+from .. import _api, _llm
 from .._data import IdStore
 
 file_manager = ExitStack()
@@ -134,7 +135,7 @@ class HTMLSubmission:
             return 0
 
 
-def render(pass_to_results, dest):
+def render(pass_to_results, dest, llm=None):
     bar = _api.get_progress_bar()
     dest = pathlib.Path(dest)
 
@@ -148,6 +149,19 @@ def render(pass_to_results, dest):
     results_per_sub_pair = sorted(sub_pair_to_results.values(),
                                   key=lambda res: res[0].score, reverse=True)
 
+    ranking_pass, ranking_results = next(iter(pass_to_results.items()))
+    try:
+        max_score = max((result.score.score for result in ranking_results))
+    except ValueError:
+        max_score = 0
+
+    # Optional LLM verdicts (see compare50._llm), shown on the index and match pages
+    reviews = {}
+    if llm is not None and max_score:
+        report = _llm.review(llm, [(id, res[0].sub_a, res[0].sub_b, 10 * res[0].score.score / max_score)
+                                   for id, res in enumerate(results_per_sub_pair, 1)])
+        reviews = {p["match"]: p for p in report["pairs"]}
+
     common_css = [read_file(STATIC / "base.css")]
     match_css = common_css + [read_file(STATIC / "match.css")]
     match_js = [read_file(STATIC / f) for f in ("split.min.js", "match.js")]
@@ -155,7 +169,7 @@ def render(pass_to_results, dest):
     with _api.Executor() as executor:
         # Load static files
         max_id = len(results_per_sub_pair)
-        for id, html in executor.map(_RenderTask(dest, max_id, match_js, match_css), enumerate(results_per_sub_pair, 1)):
+        for id, html in executor.map(_RenderTask(dest, max_id, match_js, match_css, reviews), enumerate(results_per_sub_pair, 1)):
             with open(dest / f"match_{id}.html", "w") as f:
                 f.write(html)
             bar.update()
@@ -166,19 +180,21 @@ def render(pass_to_results, dest):
         index_template = jinja2.Template(
             f.read(), autoescape=jinja2.select_autoescape(enabled_extensions=("html",)))
 
-    ranking_pass, ranking_results = next(iter(pass_to_results.items()))
-
-
-    try:
-        max_score = max((result.score.score for result in ranking_results))
-    except ValueError:
-        max_score = 0
+    if llm is not None and max_score:
+        # Same shape the CLAOJ admin page reads; written next to index.html
+        with open(dest / "llm.json", "w") as f:
+            json.dump(report, f, indent=2)
+    review_by_pair = {(p["a"], p["b"]): p for p in reviews.values()}
 
     # Generate cluster data
     subs = set()
     graph_info = {"nodes": [], "links": [], "data": {}}
     for i, result in enumerate(ranking_results):
-        graph_info["links"].append({"index":i, "source": str(result.sub_a.path), "target": str(result.sub_b.path), "value": 10 * result.score.score/max_score})
+        link = {"index":i, "source": str(result.sub_a.path), "target": str(result.sub_b.path), "value": 10 * result.score.score/max_score}
+        review = review_by_pair.get((link["source"], link["target"]))
+        if review:
+            link["llm"] = {k: review[k] for k in ("verdict", "confidence", "reasons")}
+        graph_info["links"].append(link)
         subs.add(result.sub_a)
         subs.add(result.sub_b)
 
@@ -213,12 +229,13 @@ def read_file(fname):
 
 
 class _RenderTask:
-    def __init__(self, dest, max_id, js, css):
+    def __init__(self, dest, max_id, js, css, reviews):
         dest.mkdir(exist_ok=True)
         self.dest = dest
         self.max_id = max_id
         self.js = js
         self.css = css
+        self.reviews = reviews
 
     def __call__(self, arg):
         id, results = arg
@@ -262,6 +279,7 @@ class _RenderTask:
         page_html = page_template.render(id=id, max_id=self.max_id,
                                          passes=passes, matches=match_htmls,
                                          data=[attr.asdict(datum) for datum in data],
+                                         review=self.reviews.get(id),
                                          js=self.js, css=self.css)
 
         return id, page_html

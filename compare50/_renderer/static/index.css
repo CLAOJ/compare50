@@ -78,6 +78,22 @@ table.pairs {
 .bar.high > span { background: var(--danger); }
 .num { width: 2.6em; font-weight: 600; text-align: right; }
 
+/* LLM verdict (only when compare50 ran with an LLM) */
+.llm { width: 150px; white-space: nowrap; }
+.verdict-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+.verdict-badge .conf { font-weight: 400; opacity: 0.8; }
+.v-likely_copied { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+.v-shared_template { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.v-independent { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+
 /* cluster graph */
 .links line { stroke: var(--muted); stroke-opacity: 0.55; }
 .nodes rect { cursor: pointer; }

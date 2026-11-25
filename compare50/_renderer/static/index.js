@@ -19,6 +19,10 @@ var LINK_DATA = GRAPH.links;
 
 var COLOR = null;
 
+var HAS_LLM = GRAPH.links.some(link => link.llm);
+var VERDICT_LABELS = {likely_copied: "Likely copied", shared_template: "Shared template",
+                      independent: "Independent", unclear: "Unclear"};
+
 // When there are exactly two nodes in the graph, d3 sets all kinds of things to
 // NaN for an unknown reason
 // This bool exists to mark all the places in the code where we implement the hack to fix this issue.
@@ -141,7 +145,9 @@ function init_index() {
         .attr("id", "results");
 
     let thead_tr = table.append("thead").append("tr");
-    for (let [label, cls] of [["#", "rank"], ["Submission A", ""], ["Submission B", ""], ["Score", "score"]]) {
+    let cols = [["#", "rank"], ["Submission A", ""], ["Submission B", ""], ["Score", "score"]];
+    if (HAS_LLM) cols.push(["AI review", "llm"]);
+    for (let [label, cls] of cols) {
         thead_tr.append("th").attr("scope", "col").attr("class", cls).text(label);
     }
 
@@ -367,6 +373,17 @@ function update_index() {
         .append("span")
         .style("width", d => `${Math.max(0, Math.min(10, d.value)) * 10}%`);
     score.append("span").attr("class", "num").text(d => d.value.toFixed(1));
+
+    if (HAS_LLM) {
+        // Model output is untrusted text: insert with .text() only
+        let llm = new_trs.append("td").attr("class", "llm").filter(d => d.llm)
+            .append("span")
+            .attr("class", d => `verdict-badge v-${d.llm.verdict}`)
+            .attr("title", d => (d.llm.reasons || []).join("\n"));
+        llm.text(d => VERDICT_LABELS[d.llm.verdict] || "Failed");
+        llm.filter(d => d.llm.verdict !== "error").append("span").attr("class", "conf")
+            .text(d => ` ${Math.round(d.llm.confidence * 100)}%`);
+    }
 
     new_trs.on("keydown", d => {
         if (d3.event.key === "Enter") window.open(`match_${d.index + 1}.html`);

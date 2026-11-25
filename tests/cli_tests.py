@@ -247,6 +247,72 @@ class TestCompare50Cli(unittest.TestCase):
         self.assertGreater(newlines, 0)
         self.assertEqual(newlines % (2 * ORIGINAL_C.count("\n")), 0)
 
+    def test_llm_verdicts_in_report(self):
+        import http.server
+        import threading
+
+        bodies = []
+
+        class Fake(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                bodies.append((self.path, self.headers["Authorization"],
+                               self.rfile.read(int(self.headers["Content-Length"])).decode()))
+                content = '```json\n{"verdict": "likely_copied", "confidence": 0.9, "reasons": ["' + PAYLOAD.replace('"', '\\"') + '"]}\n```'
+                out = json.dumps({"choices": [{"message": {"content": content}}]}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(out)))
+                self.end_headers()
+                self.wfile.write(out)
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Fake)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+
+        self.write("alice_secret/main.cpp", ORIGINAL_C)
+        self.write("bob_secret/main.cpp", rename(ORIGINAL_C))
+        env = {**os.environ, "COMPARE50_LLM_URL": f"http://127.0.0.1:{server.server_port}/v1/",
+               "COMPARE50_LLM_KEY": "sk-test", "COMPARE50_LLM_MODEL": "m"}
+        result = subprocess.run([sys.executable, "-m", "compare50", "alice_secret", "bob_secret", "-o", "out", "-n", "3"],
+                                cwd=self.cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                                text=True, encoding="utf8", timeout=600)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(bodies), 1)
+        path, auth, body = bodies[0]
+        self.assertEqual(path, "/v1/chat/completions")
+        self.assertEqual(auth, "Bearer sk-test")
+        self.assertNotIn("secret", body)  # submission names never reach the model
+        self.assertIn("sum_values", body)  # the code does
+
+        with open(os.path.join(self.cwd, "out", "llm.json"), encoding="utf8") as f:
+            report = json.load(f)
+        self.assertEqual(report["pairs"][0]["match"], 1)
+        self.assertEqual(report["pairs"][0]["verdict"], "likely_copied")
+        with open(os.path.join(self.cwd, "out", "index.html"), encoding="utf8") as f:
+            index = f.read()
+        self.assertEqual(read_graph(index)["links"][0]["llm"]["verdict"], "likely_copied")
+        with open(os.path.join(self.cwd, "out", "match_1.html"), encoding="utf8") as f:
+            match = f.read()
+        self.assertIn("verdict-likely_copied", match)
+        self.assertNotIn(PAYLOAD, index)  # model output is escaped
+        self.assertNotIn(PAYLOAD, match)
+
+    def test_llm_failure_does_not_fail_report(self):
+        self.write("a/main.cpp", ORIGINAL_C)
+        self.write("b/main.cpp", rename(ORIGINAL_C))
+        env = {**os.environ, "COMPARE50_LLM_URL": "http://127.0.0.1:9/v1",  # discard port: refused
+               "COMPARE50_LLM_KEY": "k", "COMPARE50_LLM_MODEL": "m"}
+        result = subprocess.run([sys.executable, "-m", "compare50", "a", "b", "-o", "out", "-n", "3"],
+                                cwd=self.cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                                text=True, encoding="utf8", timeout=600)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with open(os.path.join(self.cwd, "out", "llm.json"), encoding="utf8") as f:
+            self.assertEqual(json.load(f)["pairs"][0]["verdict"], "error")
+
     def test_escapes_source_and_names(self):
         # Windows filenames cannot contain < or >, so use other HTML metacharacters there
         name = "x&b;y" if os.name == "nt" else "x<b>y"
@@ -273,6 +339,7 @@ class TestCompare50Cli(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_no_network_call(self):
+        # Without COMPARE50_LLM_* nothing goes on the network.
         # Every DNS lookup and socket connect fails and leaves a marker on stderr
         code = ("import socket, sys\n"
                 "def _deny(*args, **kwargs):\n"

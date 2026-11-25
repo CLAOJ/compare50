@@ -16,7 +16,7 @@ import tempfile
 import attr
 import termcolor
 
-from . import comparators, _api, _data, _renderer, __version__
+from . import comparators, _api, _data, _llm, _renderer, __version__
 
 
 def excepthook(cls, exc, tb):
@@ -349,6 +349,17 @@ def main():
                         default=1024,
                         type=int,
                         help="maximum allowed file size in KiB (default 1024 KiB)")
+    parser.add_argument("--llm-pairs",
+                        action="store",
+                        default=5,
+                        type=int,
+                        help="ask an LLM for a verdict on the top N pairs (default 5, 0 disables); needs "
+                             "COMPARE50_LLM_URL, COMPARE50_LLM_KEY and COMPARE50_LLM_MODEL (OpenAI-compatible API)")
+    parser.add_argument("--llm-min-score",
+                        action="store",
+                        default=5.0,
+                        type=float,
+                        help="only review pairs scoring at least this (0-10, relative to the top pair; default 5)")
     parser.add_argument("--profile",
                         action="store_true",
                         help="profile compare50 (development only, requires line_profiler, implies debug)")
@@ -443,9 +454,13 @@ def main():
                     object.__setattr__(sub, "preprocessor", preprocessor)
                 pass_to_results[pass_] = _api.compare(scores, ignored_files, pass_)
 
+        llm = _llm.Config.from_env(args.llm_pairs, args.llm_min_score)
+        if llm:
+            termcolor.cprint(f"Asking {llm.model} about the top {llm.pairs} pairs...", "yellow")
+
         # Render results
         with _api.progress_bar("Rendering", disable=args.debug):
-            index = _renderer.render(pass_to_results, dest=args.output)
+            index = _renderer.render(pass_to_results, dest=args.output, llm=llm)
 
     termcolor.cprint(
         f"Done! Visit file://{index.absolute()} in a web browser to see the results.", "green")
