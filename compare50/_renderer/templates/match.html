@@ -19,7 +19,7 @@
                                 {%- for frag in file.fragments -%}
                                     <code class="fragment{{' text-muted' if frag.is_ignored else ''}}" id="{{frag.id}}">
                                         {%- for line in frag.content -%}
-                                            <code class="line{{' newline' if ns.is_newline else ''}}">{{line}}</code>
+                                            <code class="line{{' newline' if ns.is_newline else ''}}">{{frag.html[loop.index0]}}</code>
                                             {%- set ns.is_newline = line.endswith('\n') -%}
                                         {%- endfor -%}
                                     </code>

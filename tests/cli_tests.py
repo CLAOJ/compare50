@@ -231,6 +231,21 @@ class TestCompare50Cli(unittest.TestCase):
                 self.assertFalse("@font-face" in f.read(), page)
             self.assertLess(os.path.getsize(path), 450_000, page)
 
+    def test_match_page_has_syntax_colours(self):
+        self.write("a/main.cpp", ORIGINAL_C)
+        self.write("b/main.cpp", rename(ORIGINAL_C))
+
+        result = run_compare50(self.cwd, "a", "b", "-o", "out", "-n", "3")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with open(os.path.join(self.cwd, "out", "match_1.html"), encoding="utf8") as f:
+            page = f.read()
+        self.assertIn('<span class="tk-k">return</span>', page)
+        # Line numbers still come from code.newline: one per source line, per side, per pass
+        newlines = page.count('class="line newline"')
+        self.assertGreater(newlines, 0)
+        self.assertEqual(newlines % (2 * ORIGINAL_C.count("\n")), 0)
+
     def test_escapes_source_and_names(self):
         # Windows filenames cannot contain < or >, so use other HTML metacharacters there
         name = "x&b;y" if os.name == "nt" else "x<b>y"

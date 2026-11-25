@@ -10,6 +10,8 @@ from contextlib import ExitStack
 import attr
 import jinja2
 import pygments
+from markupsafe import Markup, escape
+from pygments import token as T
 from pygments.formatters import HtmlFormatter
 
 from .. import _api
@@ -49,6 +51,57 @@ class HTMLFragment:
     is_ignored = attr.ib()
     is_grouped = attr.ib()
     spans = attr.ib()
+    html = attr.ib()  # content lines as escaped Markup with syntax-colour spans
+
+
+# Most specific first: Comment.Preproc is also a Comment
+_TOKEN_CLASSES = ((T.Comment.Preproc, "cp"), (T.Comment, "c"), (T.Keyword, "k"),
+                  (T.String, "s"), (T.Number, "m"), (T.Name.Builtin, "nb"),
+                  (T.Name.Function, "nf"))
+
+
+def _token_class(ttype):
+    for parent, cls in _TOKEN_CLASSES:
+        if ttype in parent:
+            return cls
+    return None
+
+
+def highlight(file, fragments):
+    """Return, per fragment, its lines as Markup with <span class="tk-*"> syntax colours.
+
+    The text is unchanged (only wrapped), so match offsets and line numbers stay exact.
+    """
+    content = "".join(line for frag in fragments for line in frag.content)
+    classes = [None] * len(content)
+    try:
+        for start, ttype, value in file.lexer().get_tokens_unprocessed(content):
+            cls = _token_class(ttype)
+            if cls:
+                end = min(start + len(value), len(content))
+                classes[start:end] = [cls] * (end - start)
+    except Exception:
+        pass  # colours are cosmetic; fall back to plain text
+
+    result = []
+    pos = 0
+    for frag in fragments:
+        lines = []
+        for line in frag.content:
+            parts = []
+            i = 0
+            while i < len(line):
+                cls = classes[pos + i]
+                j = i
+                while j < len(line) and classes[pos + j] == cls:
+                    j += 1
+                text = escape(line[i:j])
+                parts.append(Markup(f'<span class="tk-{cls}">{text}</span>') if cls else text)
+                i = j
+            lines.append(Markup("").join(parts))
+            pos += len(line)
+        result.append(tuple(lines))
+    return result
 
 
 @attr.s(slots=True)
@@ -254,12 +307,13 @@ class _Renderer:
 
     def html_fragments(self, file, spans, ignored_spans):
         frags = []
-        for fragment in fragmentize(file, spans):
+        fragments = fragmentize(file, spans)
+        for fragment, html in zip(fragments, highlight(file, fragments)):
             frag_id = self.frag_id(fragment)
             is_ignored = any(span in ignored_spans for span in fragment.spans)
             is_grouped = any(span not in ignored_spans for span in fragment.spans)
             frags.append(HTMLFragment(frag_id, fragment.content,
-                                       is_ignored, is_grouped, fragment.spans))
+                                       is_ignored, is_grouped, fragment.spans, html))
         return frags
 
     def html_files(self, submission, file_to_spans, ignored_spans):
