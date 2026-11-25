@@ -280,8 +280,8 @@ class TestCompare50Cli(unittest.TestCase):
         self.write("bob_secret/main.cpp", rename(ORIGINAL_C))
         env = {**os.environ, "COMPARE50_LLM_URL": f"http://127.0.0.1:{server.server_port}/v1/",
                "COMPARE50_LLM_KEY": "sk-test", "COMPARE50_LLM_MODEL": "m", "COMPARE50_LLM_RETRY_WAITS": "0.1"}
-        result = subprocess.run([sys.executable, "-m", "compare50", "alice_secret", "bob_secret", "-o", "out", "-n", "3",
-                                 "--llm-language", "Vietnamese"],
+        env["COMPARE50_LLM_LANGUAGE"] = "Vietnamese"
+        result = subprocess.run([sys.executable, "-m", "compare50", "alice_secret", "bob_secret", "-o", "out", "-n", "3"],
                                 cwd=self.cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True,
                                 text=True, encoding="utf8", timeout=600)
 

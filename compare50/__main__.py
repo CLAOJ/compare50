@@ -362,8 +362,8 @@ def main():
                         help="only review pairs scoring at least this (0-10, relative to the top pair; default 5)")
     parser.add_argument("--llm-language",
                         action="store",
-                        default="English",
-                        help="language the LLM writes its reasons in (default English)")
+                        default=os.environ.get("COMPARE50_LLM_LANGUAGE") or "English",
+                        help="language the LLM writes its reasons in (default: $COMPARE50_LLM_LANGUAGE, else English)")
     parser.add_argument("--profile",
                         action="store_true",
                         help="profile compare50 (development only, requires line_profiler, implies debug)")
