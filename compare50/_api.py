@@ -1,8 +1,10 @@
 import collections
 import contextlib
+import glob
 import heapq
 import io
 import itertools
+import os
 import time
 
 import intervaltree
@@ -18,6 +20,44 @@ __all__ = ["rank", "compare", "missing_spans", "expand", "progress_bar", "get_pr
 class Error(Exception):
     """Base class for compare50 errors."""
     pass
+
+
+def files(patterns, root="."):
+    """
+    :param patterns: ``(tag, glob)`` pairs, tag is ``"include"`` or ``"exclude"``, applied in order
+    :param root: directory to search
+    :returns: ``(included, excluded)`` sets of paths relative to ``root``
+
+
+    Stdlib stand-in for ``lib50.files``: everything not hidden is included by default,
+    then each pattern adds or removes its matches. Directories match all files under them.
+    """
+    included = set(_expand("*", root))
+    excluded = set()
+    for tag, pattern in patterns:
+        matched = _expand(pattern, root)
+        if tag == "include":
+            excluded -= matched
+            included |= matched
+        elif tag == "exclude":
+            included -= matched
+            excluded |= matched
+    return included, excluded
+
+
+def _expand(pattern, root):
+    # Implicit recursive iff no / in pattern and starts with *
+    if "/" not in pattern and pattern.startswith("*"):
+        pattern = f"**/{pattern}"
+
+    found = set()
+    for match in glob.glob(os.path.join(glob.escape(os.fspath(root)), pattern), recursive=True):
+        if os.path.isdir(match):
+            found.update(p for p in glob.glob(os.path.join(glob.escape(match), "**", "*"), recursive=True)
+                         if os.path.isfile(p))
+        elif os.path.isfile(match):
+            found.add(match)
+    return {os.path.relpath(p, root) for p in found}
 
 
 def rank(submissions, archive_submissions, ignored_files, pass_, n=50):

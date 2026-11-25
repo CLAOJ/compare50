@@ -1,5 +1,6 @@
 import abc
 import collections
+import hashlib
 import itertools
 import math
 import sys
@@ -197,7 +198,9 @@ class Index(abc.ABC):
 
     def hashes(self, tokens):
         """Hash each contiguous sequence of k tokens in ``tokens``."""
-        return (hash("".join(kgram)) for kgram in self.kgrams(t.val for t in tokens))
+        # Not hash(): its seed differs per process, and pool workers spawned on Windows and macOS would disagree
+        return (int.from_bytes(hashlib.blake2b("".join(kgram).encode("utf8"), digest_size=8).digest(), "little")
+                for kgram in self.kgrams(t.val for t in tokens))
 
     @abc.abstractmethod
     def compare(self, other):

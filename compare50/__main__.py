@@ -16,14 +16,13 @@ import requests
 import packaging.version
 
 import attr
-import lib50
 import termcolor
 
 from . import comparators, _api, _data, _renderer, __version__
 
 
 def excepthook(cls, exc, tb):
-    if (issubclass(cls, _api.Error) or issubclass(cls, lib50.Error)) and exc.args:
+    if issubclass(cls, _api.Error) and exc.args:
         termcolor.cprint(str(exc), "red", file=sys.stderr)
     elif cls is FileNotFoundError:
         termcolor.cprint("{} not found".format(exc.filename), "red", file=sys.stderr)
@@ -64,26 +63,24 @@ class SubmissionFactory:
         self.submissions = {}
 
     def include(self, pattern):
-        pattern = lib50.config.TaggedValue(pattern, "include")
-        self.patterns.append(pattern)
+        self.patterns.append(("include", pattern))
 
     def exclude(self, pattern):
-        pattern = lib50.config.TaggedValue(pattern, "exclude")
-        self.patterns.append(pattern)
+        self.patterns.append(("exclude", pattern))
 
     def _get(self, path, preprocessor, is_archive=False):
         path = pathlib.Path(path)
 
-        # Ask lib50 which file(s) in path should be included
+        # Ask which file(s) in path should be included
         if path.is_file():
-            # lib50.files operates on a directory
+            # files operates on a directory
             # So create a tempdir if the path is just a file
             with tempfile.TemporaryDirectory() as dir:
                 (pathlib.Path(dir) / path.name).touch()
-                included, excluded = lib50.files(self.patterns, root=dir)
+                included, excluded = _api.files(self.patterns, root=dir)
             path = path.parent
         else:
-            included, excluded = lib50.files(self.patterns, require_tags=[], root=path)
+            included, excluded = _api.files(self.patterns, root=path)
 
         # Filter out any non utf8 files
         decodable, undecodable = partition(included, lambda fp: self._is_valid_utf8(path / fp))

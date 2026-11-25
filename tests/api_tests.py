@@ -115,8 +115,8 @@ class TestMissingSpans(unittest.TestCase):
         self.file = data.Submission(".", ["foo.py"]).files[0]
 
     def tearDown(self):
-        self.working_directory.cleanup()
         os.chdir(self._wd)
+        self.working_directory.cleanup()
 
     def span(self, start, end):
         return data.Span(self.file, start, end)

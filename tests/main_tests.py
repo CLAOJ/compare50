@@ -13,8 +13,8 @@ class TestCase(unittest.TestCase):
         os.chdir(self.working_directory.name)
 
     def tearDown(self):
-        self.working_directory.cleanup()
         os.chdir(self._wd)
+        self.working_directory.cleanup()
 
 
 class TestSubmissionFactory(TestCase):
@@ -111,6 +111,7 @@ class TestSubmissionFactory(TestCase):
         subs = {sub for sub in subs if sub.files}
         self.assertEqual(subs, set())
 
+    @unittest.skipIf(os.name == "nt", "chmod cannot revoke read access on Windows")
     def test_permission_error(self):
         os.mkdir("foo")
         file_path = "foo/bar.py"
