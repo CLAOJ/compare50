@@ -12,8 +12,6 @@ import string
 import traceback
 import time
 import tempfile
-import requests
-import packaging.version
 
 import attr
 import termcolor
@@ -295,23 +293,6 @@ def expand_patterns(patterns):
     return list(itertools.chain.from_iterable(map(lambda x: glob.glob(x, recursive=True) or [x], patterns)))
 
 
-def check_version(package_name=__package__, timeout=5):
-    """Check for newer version of the package on PyPI"""    
-    if not __version__:
-        return
-    
-    try:
-        current = packaging.version.parse(__version__)
-        latest = max(requests.get(f"https://pypi.org/pypi/{package_name}/json", timeout=timeout).json()["releases"], key=packaging.version.parse)
-        latest = packaging.version.parse(latest)
-        if latest > current:
-            termcolor.cprint(f"A newer version of {package_name} is available. Run pip3 install --upgrade {package_name} to upgrade.", "magenta")
-    except requests.ConnectionError:
-        pass
-    except Exception as e:
-        termcolor.cprint(f"Version check failed: {e}", "red")
-
-
 def main():
     submission_factory = SubmissionFactory()
 
@@ -379,9 +360,6 @@ def main():
                         version=f"%(prog)s {__version__}")
 
     args = parser.parse_args()
-
-    # Check for newer version of compare50
-    check_version()
 
     excepthook.verbose = args.verbose
 

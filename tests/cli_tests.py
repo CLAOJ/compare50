@@ -242,6 +242,25 @@ class TestCompare50Cli(unittest.TestCase):
                                 capture_output=True, text=True, encoding="utf8", timeout=120)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_no_network_call(self):
+        # Every DNS lookup and socket connect fails and leaves a marker on stderr
+        code = ("import socket, sys\n"
+                "def _deny(*args, **kwargs):\n"
+                "    sys.stderr.write('NETWORK ATTEMPT\\n')\n"
+                "    raise OSError('network disabled for test')\n"
+                "socket.getaddrinfo = _deny\n"
+                "socket.socket.connect = _deny\n"
+                "socket.create_connection = _deny\n"
+                "sys.argv = ['compare50', 'a', 'b', '-o', 'out', '-n', '3']\n"
+                "import runpy\n"
+                "runpy.run_module('compare50', run_name='__main__', alter_sys=True)\n")
+        self.write("a/main.cpp", ORIGINAL_C)
+        self.write("b/main.cpp", rename(ORIGINAL_C))
+        result = subprocess.run([sys.executable, "-c", code], cwd=self.cwd, stdin=subprocess.DEVNULL,
+                                capture_output=True, text=True, encoding="utf8", timeout=600)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("NETWORK ATTEMPT", result.stderr)
+
     def test_hashes_agree_across_processes(self):
         # Pool workers are spawned with a fresh hash seed on Windows and macOS, so k-gram hashes must not depend on it
         code = ("import types; from compare50.comparators._winnowing import ScoreIndex; "
