@@ -217,6 +217,20 @@ class TestCompare50Cli(unittest.TestCase):
         first = links[0]
         self.assertEqual({os.path.basename(first["source"]), os.path.basename(first["target"])}, {"a", "b"})
 
+    def test_pages_do_not_embed_webfonts(self):
+        # Every page inlines its CSS; the 440 KB base64 webfonts made each report page ~0.6-0.9 MB.
+        self.write("a/main.cpp", ORIGINAL_C)
+        self.write("b/main.cpp", rename(ORIGINAL_C))
+
+        result = run_compare50(self.cwd, "a", "b", "-o", "out", "-n", "3")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for page in ("index.html", "match_1.html"):
+            path = os.path.join(self.cwd, "out", page)
+            with open(path, encoding="utf8") as f:
+                self.assertFalse("@font-face" in f.read(), page)
+            self.assertLess(os.path.getsize(path), 450_000, page)
+
     def test_escapes_source_and_names(self):
         # Windows filenames cannot contain < or >, so use other HTML metacharacters there
         name = "x&b;y" if os.name == "nt" else "x<b>y"

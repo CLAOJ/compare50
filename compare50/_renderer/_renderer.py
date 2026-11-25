@@ -95,7 +95,7 @@ def render(pass_to_results, dest):
     results_per_sub_pair = sorted(sub_pair_to_results.values(),
                                   key=lambda res: res[0].score, reverse=True)
 
-    common_css = [read_file(STATIC / f) for f in  ("bootstrap.min.css", "fonts.css")]
+    common_css = [read_file(STATIC / "bootstrap.min.css")]
     match_css = common_css + [read_file(STATIC / "match.css")]
     match_js = [read_file(STATIC / f) for f in ("split.min.js", "match.js")]
     # Render all matches
