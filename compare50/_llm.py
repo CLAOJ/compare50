@@ -8,12 +8,14 @@ import concurrent.futures
 import datetime
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 
 SOURCE_LIMIT = 12000  # chars per submission sent to the model
 TIMEOUT = 90          # seconds per call
 WORKERS = 4
+RETRY_WAITS = tuple(float(s) for s in os.environ.get("COMPARE50_LLM_RETRY_WAITS", "5,15,30").split(",") if s)
 VERDICTS = ("likely_copied", "shared_template", "independent", "unclear")
 
 SYSTEM_PROMPT = """You help programming-contest judges review plagiarism reports.
@@ -63,11 +65,17 @@ def _ask(config, sub_a, sub_b, score):
                                     {"role": "user", "content": user}]}).encode()
     req = urllib.request.Request(config.url, data=body, method="POST", headers={
         "Content-Type": "application/json", "Authorization": f"Bearer {config.key}"})
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            raw = resp.read(1 << 20)
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"HTTP {e.code}: {e.read(200).decode('utf8', 'replace')}") from None
+    for wait in RETRY_WAITS + (None,):
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                raw = resp.read(1 << 20)
+            break
+        except urllib.error.HTTPError as e:
+            # Rate limits and overload ("high demand") are usually brief: back off and retry
+            if e.code in (429, 500, 502, 503, 504) and wait is not None:
+                time.sleep(wait)
+                continue
+            raise RuntimeError(f"HTTP {e.code}: {e.read(200).decode('utf8', 'replace')}") from None
 
     content = json.loads(raw)["choices"][0]["message"]["content"]
     # Models often wrap the JSON in a ```json fence; take the outermost object.

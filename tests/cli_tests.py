@@ -257,6 +257,11 @@ class TestCompare50Cli(unittest.TestCase):
             def do_POST(self):
                 bodies.append((self.path, self.headers["Authorization"],
                                self.rfile.read(int(self.headers["Content-Length"])).decode()))
+                if len(bodies) == 1:  # first call: model overloaded, must be retried
+                    self.send_response(503)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
                 content = '```json\n{"verdict": "likely_copied", "confidence": 0.9, "reasons": ["' + PAYLOAD.replace('"', '\\"') + '"]}\n```'
                 out = json.dumps({"choices": [{"message": {"content": content}}]}).encode()
                 self.send_response(200)
@@ -274,14 +279,14 @@ class TestCompare50Cli(unittest.TestCase):
         self.write("alice_secret/main.cpp", ORIGINAL_C)
         self.write("bob_secret/main.cpp", rename(ORIGINAL_C))
         env = {**os.environ, "COMPARE50_LLM_URL": f"http://127.0.0.1:{server.server_port}/v1/",
-               "COMPARE50_LLM_KEY": "sk-test", "COMPARE50_LLM_MODEL": "m"}
+               "COMPARE50_LLM_KEY": "sk-test", "COMPARE50_LLM_MODEL": "m", "COMPARE50_LLM_RETRY_WAITS": "0.1"}
         result = subprocess.run([sys.executable, "-m", "compare50", "alice_secret", "bob_secret", "-o", "out", "-n", "3"],
                                 cwd=self.cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True,
                                 text=True, encoding="utf8", timeout=600)
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(bodies), 1)
-        path, auth, body = bodies[0]
+        self.assertEqual(len(bodies), 2)  # one 503, one retry
+        path, auth, body = bodies[1]
         self.assertEqual(path, "/v1/chat/completions")
         self.assertEqual(auth, "Bearer sk-test")
         self.assertNotIn("secret", body)  # submission names never reach the model
