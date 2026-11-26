@@ -166,14 +166,32 @@ def render(pass_to_results, dest, llm=None):
     match_css = common_css + [read_file(STATIC / "match.css")]
     match_js = [read_file(STATIC / f) for f in ("split.min.js", "match.js")]
     # Render all matches
+    percentages = {}
     with _api.Executor() as executor:
         # Load static files
         max_id = len(results_per_sub_pair)
-        for id, html in executor.map(_RenderTask(dest, max_id, match_js, match_css, reviews), enumerate(results_per_sub_pair, 1)):
+        for id, html, pcts in executor.map(_RenderTask(dest, max_id, match_js, match_css, reviews), enumerate(results_per_sub_pair, 1)):
             with open(dest / f"match_{id}.html", "w") as f:
                 f.write(html)
+            percentages[id] = pcts
             bar.update()
 
+    # Machine-readable pairs for the AI submission check; written next to index.html
+    results_pairs = []
+    for id, res in enumerate(results_per_sub_pair, 1):
+        top = res[0]
+        results_pairs.append({
+            "match": id,
+            "a": str(top.sub_a.path),
+            "b": str(top.sub_b.path),
+            "archive_a": top.sub_a.is_archive,
+            "archive_b": top.sub_b.is_archive,
+            "score": float(10 * top.score.score / max_score) if max_score else 0.0,
+            "pct_a": percentages[id][0],
+            "pct_b": percentages[id][1],
+        })
+    with open(dest / "results.json", "w") as f:
+        json.dump({"pairs": results_pairs}, f, indent=2)
 
     # Create index
     with open(TEMPLATES / "index.html") as f:
@@ -242,7 +260,8 @@ class _RenderTask:
         data = []
         match_htmls = []
 
-        for result in results:
+        ranking_percentages = None
+        for i, result in enumerate(results):
             renderer = _Renderer(result.name)
             score = result.score
             groups = result.groups
@@ -260,6 +279,8 @@ class _RenderTask:
             ignored_spans = set(ignored_spans)
             sub_a = renderer.html_submission(score.sub_a, file_to_spans, ignored_spans)
             sub_b = renderer.html_submission(score.sub_b, file_to_spans, ignored_spans)
+            if i == 0:  # the first pass is the ranking pass
+                ranking_percentages = (sub_a.percentage, sub_b.percentage)
 
             all_html_fragments = [frag for file in sub_a.files +
                                   sub_b.files for frag in file.fragments]
@@ -282,7 +303,7 @@ class _RenderTask:
                                          review=self.reviews.get(id),
                                          js=self.js, css=self.css)
 
-        return id, page_html
+        return id, page_html, ranking_percentages
 
     @staticmethod
     def _prepare_dest(dest):

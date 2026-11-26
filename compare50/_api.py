@@ -60,7 +60,7 @@ def _expand(pattern, root):
     return {os.path.relpath(p, root) for p in found}
 
 
-def rank(submissions, archive_submissions, ignored_files, pass_, n=50):
+def rank(submissions, archive_submissions, ignored_files, pass_, n=50, archive_only=False):
     """
     :param submissions: submissions to be ranked
     :type submissions: [:class:`compare50.Submission`]
@@ -72,6 +72,8 @@ def rank(submissions, archive_submissions, ignored_files, pass_, n=50):
     :type pass_: :class:`compare50.Pass`
     :param n: number of submission pairs to return
     :type n: int
+    :param archive_only: only keep pairs with an archive side, the best one per regular submission
+    :type archive_only: bool
     :returns: the top ``n`` submission pairs
     :rtype: [:class:`compare50.Score`]
 
@@ -79,6 +81,15 @@ def rank(submissions, archive_submissions, ignored_files, pass_, n=50):
     Rank submissions, return the top ``n`` most similar pairs
     """
     scores = pass_.comparator.score(submissions, archive_submissions, ignored_files)
+    if archive_only:
+        best = {}
+        for score in scores:
+            if not (score.sub_a.is_archive or score.sub_b.is_archive):
+                continue
+            regular = score.sub_b if score.sub_a.is_archive else score.sub_a
+            if regular not in best or score.score > best[regular].score:
+                best[regular] = score
+        scores = best.values()
     # Keep only top `n` submission matches
     return heapq.nlargest(n, scores)
 

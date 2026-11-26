@@ -217,6 +217,35 @@ class TestCompare50Cli(unittest.TestCase):
         first = links[0]
         self.assertEqual({os.path.basename(first["source"]), os.path.basename(first["target"])}, {"a", "b"})
 
+    def test_results_json_has_absolute_percentages(self):
+        self.write("a/main.cpp", ORIGINAL_C)
+        self.write("b/main.cpp", rename(ORIGINAL_C))
+        self.write("c/main.cpp", UNRELATED_CPP)
+        r = run_compare50(self.cwd, "a", "b", "c", "-o", "out", "-n", "3")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(os.path.join(self.cwd, "out", "results.json"), encoding="utf8") as f:
+            pairs = json.load(f)["pairs"]
+        top = pairs[0]
+        self.assertEqual({os.path.basename(top["a"]), os.path.basename(top["b"])}, {"a", "b"})
+        self.assertGreaterEqual(top["pct_a"], 80)
+        self.assertGreaterEqual(top["pct_b"], 80)
+        self.assertFalse(top["archive_a"] or top["archive_b"])
+
+    def test_archive_only_keeps_best_archive_pair_per_submission(self):
+        self.write("a/main.cpp", ORIGINAL_C)
+        self.write("b/main.cpp", rename(ORIGINAL_C))
+        self.write("refs/r1/main.cpp", ORIGINAL_C)
+        self.write("refs/r2/main.cpp", UNRELATED_CPP)
+        r = run_compare50(self.cwd, "a", "b", "-a", "refs/r1", "refs/r2", "--archive-only", "-o", "out", "-n", "50")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(os.path.join(self.cwd, "out", "results.json"), encoding="utf8") as f:
+            pairs = json.load(f)["pairs"]
+        self.assertEqual(len(pairs), 2)                                   # one per regular submission
+        for p in pairs:
+            self.assertTrue(p["archive_a"] or p["archive_b"])             # never a-vs-b
+            ref = p["a"] if p["archive_a"] else p["b"]
+            self.assertEqual(os.path.basename(ref), "r1")
+
     def test_pages_do_not_embed_webfonts(self):
         # Every page inlines its CSS; the 440 KB base64 webfonts made each report page ~0.6-0.9 MB.
         self.write("a/main.cpp", ORIGINAL_C)

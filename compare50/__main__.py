@@ -344,6 +344,10 @@ def main():
                         metavar="MATCHES",
                         type=int,
                         help="number of matches to output")
+    parser.add_argument("--archive-only",
+                        action="store_true",
+                        help="only output matches between an archive submission and a regular submission, "
+                             "keeping the best archive match per regular submission")
     parser.add_argument("--max-file-size",
                         action="store",
                         default=1024,
@@ -441,7 +445,8 @@ def main():
 
         with _api.progress_bar(f"Scoring ({passes[0].__name__})", disable=args.debug) as bar:
             # Cross compare and rank all submissions, keep only top `n`
-            scores = _api.rank(subs, archive_subs, ignored_files, passes[0], n=args.n)
+            scores = _api.rank(subs, archive_subs, ignored_files, passes[0], n=args.n,
+                               archive_only=args.archive_only)
 
         # If ranking produced no scores, there are no matches, stop
         if not scores:
